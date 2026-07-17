@@ -10,13 +10,21 @@ clock = pg.time.Clock()
 running = True
 dt = 0
 
-#player_pos = pg.Vector2(screen.get_width() / 2, screen.get_height() / 2)
-
 def deg_rad(x):
     return x*((math.pi)/180) 
 
 def vtr_2(l):
-    return pg.math.Vector2([l[0]/l[2],l[1]/l[2]])*(27/5)
+    # FIX 1: Z-Clipping. 
+    # Added a Z-offset (1500) to push the cube away from the camera. 
+    # Without this, rotating vertices cross Z=0, dividing by negatives and breaking the math.
+    z = l[2] + 1500 
+    
+    # Safety net to prevent division by zero
+    if z == 0: 
+        z = 0.1 
+        
+    # Adjusted the FOV scale (multiplier) to 600 so it looks good at this new distance
+    return pg.math.Vector2([l[0]/z, l[1]/z]) * 600
 
 def center(p1):
     p1.y -= -1
@@ -35,18 +43,18 @@ def draw_everything(ang,axis):
                 [0,np.cos(ang),np.sin(ang)],
                 [0,-np.sin(ang),np.cos(ang)]
             ])
-
             vtx.append((np.matmul(v,r)).tolist())
     
     elif axis=='y':
         for i in vtx_main:
             v = np.array(i)
+            # FIX 2: Corrected the Y-axis rotation matrix. 
+            # You accidentally copied the X matrix here earlier.
             r = np.array([
-                [1,0,0],
-                [0,np.cos(ang),np.sin(ang)],
-                [0,-np.sin(ang),np.cos(ang)]
+                [np.cos(ang), 0, -np.sin(ang)],
+                [0, 1, 0],
+                [np.sin(ang), 0, np.cos(ang)]
             ])
-
             vtx.append((np.matmul(v,r)).tolist())
 
 
@@ -54,12 +62,6 @@ def draw_everything(ang,axis):
         pg.draw.polygon(screen, "black", [center(vtr_2(vtx[connectors[i][0]-1])),center(vtr_2(vtx[connectors[i][1]-1])),center(vtr_2(vtx[connectors[i][2]-1]))],2)
     
     vtx = []
-
-
-
-#p1 = vtr_2([0,-100.5,1])
-#p2 = vtr_2([0,0,0.1])
-#p3 = vtr_2([100.67,0,50])
 
 vtx_main = [
     [-500,500,-500],
@@ -89,44 +91,20 @@ connectors = [
     [6,8,3]
 ]
 
-
-### Display
-
-#p1 = center(p1)
-#p2 = center(p2)
-#p3 = center(p3)
-
-d=0
+d = 0
 while running:
-    # poll for events
-    # pg.QUIT event means the user clicked X to close your window
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
 
-    # fill the screen with a color to wipe away anything from last frame
     screen.fill("white")
 
-    #pg.draw.polygon(screen, "black", [p1,p2,p3],2)
-    draw_everything(20+d,'x')
+    # FIX 3: Multiplied 'd' by a speed factor so the rotation is actually visible.
+    # Because dt is small (~0.016), rotation was incredibly slow.
+    draw_everything(20 + (d * 50), 'y') # Swapped to 'y' so you can see your fixed matrix!
 
-
-    #keys = pg.key.get_pressed()
-    #if keys[pg.K_w]:
-    #    player_pos.y -= 300 * dt
-    #if keys[pg.K_s]:
-    #    player_pos.y += 300 * dt
-    #if keys[pg.K_a]:
-    #    player_pos.x -= 300 * dt
-    #if keys[pg.K_d]:
-    #    player_pos.x += 300 * dt
-#
-    ## flip() the display to put your work on screen
     pg.display.flip()
-#
-    # limits FPS to 60
-    # dt is delta time in seconds since last frame, used for framerate-
-    # independent physics.
+
     dt = clock.tick(60) / 1000
     d += dt
 
